@@ -1,0 +1,20 @@
+## This file focuses on excluding artifacts as result of the source only
+## Tool/IDE/etc specific artifacts should be specified in your global .gitignore
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+
+# Files built by Visual Studio
+*.pdb
+
+# Contents of artifacts directory
+artifacts/
