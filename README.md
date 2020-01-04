@@ -1,76 +1,107 @@
 # ProxyKit HttpOverrides
 
-[![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fproxykit%2FHttpOverrides%2Fbadge&style=flat&label=build)](https://actions-badge.atrox.dev/proxykit/HttpOverrides/goto)
+[![Build Status](https://img.shields.io/endpoint.svg?url=https%3A%2F%2Factions-badge.atrox.dev%2Fproxykit%2FRoutingHandler%2Fbadge&style=flat&label=build)](https://actions-badge.atrox.dev/proxykit/RoutingHandler/goto)
 [![NuGet][nuget badge]][nuget package]
-[![feedz.io](https://img.shields.io/badge/endpoint.svg?url=https%3A%2F%2Ff.feedz.io%2Fdh%2Foss-ci%2Fshield%2FProxyKit.HttpOverrides%2Flatest)](https://f.feedz.io/dh/oss-ci/packages/ProxyKit.HttpOverrides/latest/download)
+[![feedz.io](https://img.shields.io/badge/endpoint.svg?url=https%3A%2F%2Ff.feedz.io%2Fdh%2Foss-ci%2Fshield%2FProxyKit.RoutingHandler%2Flatest)](https://f.feedz.io/dh/oss-ci/packages/ProxyKit.RoutingHandler/latest/download)
 
 ## Introduction
-Applications that are deployed behind a reverse proxy typically need to be
-aware of that so they can generate correct URLs and paths when
-responding to requests. That is, they look at `X-Forward-*` / `Forwarded`
-headers and use their values accordingly.
 
-In ASP.NET Core, this means using the `ForwardedHeaders` middleware in your
-application. However, this middleware does not support `X-Forwarded-PathBase`
-that tells upstream hosts what the path of the incoming request is. For example,
-if you proxy `http://example.com/foo/` to `http://upstream-host/` the `/foo/`
-part is lost and absolute URLs cannot be generated unless you configure your
-application's `PathBase` directly using [`app.UsePathBase()`][app usepathbase].
+`RoutingMessageHandler` is an `HttpMessageHandler` that will route requests to
+another handler based on the origin the handler is registered against. It's
+primary use case is to be using in acceptance / integration testing with multiple
+ASP.NET Core applications via `TestServer`.
 
-However, the problems with [`app.UsePathBase()`][app usepathbase] are:
+Typical scenarios include:
 
-- You need to know the value at deployment time coupling knowledge of your
-  reverse proxy configuration with your application.
-- The value is used at start up time meaning if you want to change your reverse
-  proxy routing configuration you have to restart your application.
-- Your application can only support one path base at a time. If you want your
-  reverse proxy to forward two or more routes to a single upstream host, you are
-  out of luck.
+- Use a single `HttpClient` in acceptance/integration tests when issuing
+  requests to two or more independent applications:
 
-Related issues and discussions:
+  ![scenario1](docs/scenario1.png)
 
-- https://github.com/aspnet/AspNetCore/issues/5978
-- https://github.com/aspnet/AspNetCore/issues/5898
+- Providing a handler to a service that needs to make calls to one or more
+  other services:
 
-This project extends `ForwardedHeaders` with support for `X-Forwarded-PathBase`
-that allows the path base to be determined at runtime / per request basis.
+  ![scenario2](docs/scenario2.png)
 
-## Using
+- Combined with ProxyKit to test the behaviour of your system with two
+  instances of your application behind a reverse proxy / load balancer:
+
+  ![scenario3](docs/scenario3.png)
+
+## Example
 
 Install the NuGet package:
 
 ```bash
-dotnet package add ProxyKit.HttpOverrides
+dotnet package add ProxyKit.RoutingHandler
 ```
 
-As this package _extends_ ASP.NET Cores `ForwardedHeadersMiddleware` use it
-instead `UseForwardedHeaders()` in  your `Startup.ConfiguratApplication()`:
+This example creates two TestServer, registers them with an origin each and
+shows how a request from `HttpClient` is routed to the respective `TestServer`:
 
 ```csharp
-var options = new ForwardedHeadersWithPathBaseOptions
-{
-   ForwardedHeaders = ForwardedHeadersWithPathBase.All
-};
-app.UseForwardedHeadersWithPathBase(options);
+var routingHandler = new RoutingMessageHandler();
+
+// Create the two Test Servers
+var fooWebHostBuilder = WebHost.CreateDefaultBuilder<FooStartup>(Array.Empty<string>());
+var fooTestServer = new TestServer(fooWebHostBuilder);
+
+var barWebHostBuilder = WebHost.CreateDefaultBuilder<BarStartup>(Array.Empty<string>());
+var barTestServer = new TestServer(barWebHostBuilder);
+
+// Register the test servers against their respective origins
+routingHandler.AddHandler("http://foo", fooTestServer.CreateHandler());
+routingHandler.AddHandler("http://bar", barTestServer.CreateHandler());
+
+// Configure your HttpClient with the routing handler
+var client = new HttpClient(routingHandler);
+
+// Requests to specific origins should be routed to the correct TestServer
+var fooResponse = await client.GetAsync("http://foo");
+(await fooResponse.Content.ReadAsStringAsync()).ShouldBe("foo");
+
+var barResponse = await client.GetAsync("http://bar");
+(await barResponse.Content.ReadAsStringAsync()).ShouldBe("bar");
 ```
 
-`ForwardedHeadersWithPathBaseOptions` extends `ForwardedHeadersOptions` with
-additional properties that follows the same patterns of the base class:
+## How to build
 
-- `ForwardedPathBaseHeaderName` - the PathBase header to look for defaulting to
-  `X-Forwarded-PathBase`
-- `OriginalPathBaseHeaderName` - the header to add that will contain the
-  original path base if it has been applied, defaulting to
-  `X-Original-PathBase`.
+The build requires Docker to ensure portability with CI.
 
-Please refer to the [`ForwaredHeadersMiddleware` documentation][forwarded headers middleware]
-for correct usage of other properties (and note the security advisory!).
+On Windows:
+
+```bash
+.\build.cmd
+```
+
+On Linux:
+
+```bash
+./build.sh
+```
+
+To build without docker, .NET Core SDK 3.1 is required.
+
+On Windows:
+
+```bash
+.\build-local.cmd
+```
+
+On Linux:
+
+```bash
+./build-local.sh
+```
+
+## Contributing / Feedback / Questions
+
+Any ideas for features, bugs or questions, please create an issue. Pull requests
+gratefully accepted but please create an issue for discussion first.
+
+I can be reached on twitter at [@randompunter](https://twitter.com/randompunter)
 
 ---
-Questions to [@randompunter][twitter].
 
-[nuget badge]: https://img.shields.io/nuget/v/ProxyKit.HttpOverrides.svg
-[nuget package]: https://www.nuget.org/packages/ProxyKit.HttpOverrides
-[app usepathbase]: https://docs.microsoft.com/en-us/dotnet/api/microsoft.aspnetcore.builder.usepathbaseextensions.usepathbase?view=aspnetcore-3.1
-[forwarded headers middleware]: https://docs.microsoft.com/en-us/aspnet/core/host-and-deploy/proxy-load-balancer?view=aspnetcore-3.1
-[twitter]: https://twitter.com/randompunter
+[nuget badge]: https://img.shields.io/nuget/v/ProxyKit.RoutingHandler.svg
+[nuget package]: https://www.nuget.org/packages/ProxyKit.RoutingHandler

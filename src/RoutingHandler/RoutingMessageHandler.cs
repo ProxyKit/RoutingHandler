@@ -26,18 +26,6 @@ namespace ProxyKit.RoutingHandler
             _hosts.Add(host, endpoint);
         }
 
-        /// <summary>
-        ///     Adds a handler for a given origin.
-        /// </summary>
-        /// <param name="host">The origin host.</param>
-        /// <param name="port">The origin port.</param>
-        /// <param name="handler">The handler for requests to the specified origin.</param>
-        public void AddHandler(string host, uint port, HttpMessageHandler handler)
-        {
-            var origin = new Origin(host, port);
-            AddHandler(origin, handler);
-        }
-
         protected override Task<HttpResponseMessage> SendAsync(
             HttpRequestMessage request,
             CancellationToken cancellationToken)
