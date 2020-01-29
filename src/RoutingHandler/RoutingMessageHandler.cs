@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,7 +13,7 @@ namespace ProxyKit.RoutingHandler
     public class RoutingMessageHandler : HttpMessageHandler
     {
         private readonly Dictionary<string, HostHandler> _hosts
-            = new Dictionary<string, HostHandler>();
+            = new Dictionary<string, HostHandler>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         ///     Adds a handler for a given Origin.
