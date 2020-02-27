@@ -82,6 +82,27 @@ namespace ProxyKit.RoutingHandler
             (await barResponse.Content.ReadAsStringAsync()).ShouldBe("bar");
         }
 
+        [Fact]
+        public async Task If_host_not_found_then_should_throw()
+        {
+            var routingHandler = new RoutingMessageHandler();
+            routingHandler.AddHandler("localhost", 80, new HttpClientHandler());
+            routingHandler.AddHandler("example.com", 80, new HttpClientHandler());
+
+            var httpClient = new HttpClient(routingHandler);
+
+            Exception exception = null;
+            try
+            {
+                await httpClient.GetAsync("http://test");
+            }
+            catch (Exception ex)
+            {
+                exception = ex;
+            }
+            exception.ShouldBeOfType<InvalidOperationException>();
+        }
+
         public class FooStartup
         {
             public void Configure(IApplicationBuilder app)

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,15 @@ namespace ProxyKit.RoutingHandler
     {
         private readonly Dictionary<string, HostHandler> _hosts
             = new Dictionary<string, HostHandler>(StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        ///     Adds a handler for a given host and port.
+        /// </summary>
+        /// <param name="host">The origin host.</param>
+        /// <param name="port">The origin port.</param>
+        /// <param name="handler">The handler for requests to the specified origin.</param>
+        public void AddHandler(string host, int port, HttpMessageHandler handler) 
+            => AddHandler(new Origin(host, port), handler);
 
         /// <summary>
         ///     Adds a handler for a given Origin.
@@ -32,7 +42,12 @@ namespace ProxyKit.RoutingHandler
             CancellationToken cancellationToken)
         {
             var host = $"{request.RequestUri.Host}:{request.RequestUri.Port}";
-            var hostHandler = _hosts[host];
+            
+            if (!_hosts.TryGetValue(host, out var hostHandler))
+            {
+                var hosts = string.Join(", ", _hosts.Keys.Select(k => $"'{k}'"));
+                throw new InvalidOperationException($"Host '{host}' not found. Valid hosts are {hosts}");
+            }
 
             return hostHandler.Send(request, cancellationToken);
         }
