@@ -62,15 +62,13 @@ namespace ProxyKit.RoutingHandler
                 HttpRequestMessage request,
                 CancellationToken cancellationToken)
             {
-                // NOTE: We DO NOT want to 'await' the task inside this using. We're just suppressing execution context flow
-                // while the task itself is created (which is what would capture the context). After that we just return the
-                // (now detached task) to the caller.
-                Task<HttpResponseMessage> task;
+                Task<HttpResponseMessage> t;
+                // We don't want the executing context to flow to the host handler
                 using (ExecutionContext.SuppressFlow())
                 {
-                    task = Task.Run(() => SendAsync(request, cancellationToken), cancellationToken);
+                    t = Task.Run(() => SendAsync(request, cancellationToken), cancellationToken);
                 }
-                return task;
+                return t;
             }
         }
     }

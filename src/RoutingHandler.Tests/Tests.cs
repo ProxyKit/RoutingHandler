@@ -103,6 +103,30 @@ namespace ProxyKit.RoutingHandler
             exception.ShouldBeOfType<InvalidOperationException>();
         }
 
+        [Fact]
+        public async Task Execution_context_flow_should_no_flow_to_handler()
+        {
+            var routingHandler = new RoutingMessageHandler();
+            var asyncLocal = new AsyncLocal<Guid>
+            {
+                Value = Guid.NewGuid()
+            };
+            var outside = asyncLocal.Value;
+            var inside = outside;
+
+            var handler = new DelegateHandler(_ =>
+            {
+                inside = asyncLocal.Value;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+            });
+            routingHandler.AddHandler("localhost", 80, handler);
+            var httpClient = new HttpClient(routingHandler);
+            
+            await httpClient.GetAsync("http://localhost");
+
+            inside.ShouldNotBe(outside);
+        }
+
         public class FooStartup
         {
             public void Configure(IApplicationBuilder app)
@@ -116,6 +140,21 @@ namespace ProxyKit.RoutingHandler
             public void Configure(IApplicationBuilder app)
             {
                 app.Run(ctx => ctx.Response.WriteAsync("bar"));
+            }
+        }
+
+        private class DelegateHandler : HttpMessageHandler
+        {
+            private readonly Func<HttpRequestMessage, Task<HttpResponseMessage>> _handler;
+
+            public DelegateHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
+            {
+                _handler = handler;
+            }
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                return _handler(request);
             }
         }
     }
