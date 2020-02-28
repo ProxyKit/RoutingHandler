@@ -127,6 +127,30 @@ namespace ProxyKit.RoutingHandler
             inside.ShouldNotBe(outside);
         }
 
+
+        [Fact]
+        public async Task Suppressed_execution_context_should_not_throw()
+        {
+            var routingHandler = new RoutingMessageHandler();
+            ExecutionContext.SuppressFlow();
+            var asyncLocal = new AsyncLocal<Guid>
+            {
+                Value = Guid.NewGuid()
+            };
+            var outside = asyncLocal.Value;
+            var inside = outside;
+
+            var handler = new DelegateHandler(_ =>
+            {
+                inside = asyncLocal.Value;
+                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK));
+            });
+            routingHandler.AddHandler("localhost", 80, handler);
+            var httpClient = new HttpClient(routingHandler);
+
+            await httpClient.GetAsync("http://localhost");
+        }
+
         public class FooStartup
         {
             public void Configure(IApplicationBuilder app)
