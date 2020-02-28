@@ -63,11 +63,19 @@ namespace ProxyKit.RoutingHandler
                 CancellationToken cancellationToken)
             {
                 Task<HttpResponseMessage> t;
-                // We don't want the executing context to flow to the host handler
-                using (ExecutionContext.SuppressFlow())
+                if (ExecutionContext.IsFlowSuppressed())
                 {
                     t = Task.Run(() => SendAsync(request, cancellationToken), cancellationToken);
                 }
+                else
+                {
+                    // We don't want the executing context to flow to the host handler
+                    using (ExecutionContext.SuppressFlow())
+                    {
+                        t = Task.Run(() => SendAsync(request, cancellationToken), cancellationToken);
+                    }
+                }
+                
                 return t;
             }
         }
