@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 
-docker build \
- -f build.dockerfile \
- --tag proxykit-routinghandler-build .
+set -e
 
 docker run --rm --name proxykit-routinghandler-build \
  -v $PWD:/repo \
  -w /repo \
  -e FEEDZ_PROXYKIT_API_KEY=$FEEDZ_PROXYKIT_API_KEY \
- proxykit-routinghandler-build \
+-e BUILD_NUMBER=$GITHUB_RUN_NUMBER \
+ damianh/dotnet-core-lts-sdks \
  dotnet run -p build/build.csproj -c Release -- "$@"
